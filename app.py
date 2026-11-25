@@ -1,3 +1,5 @@
+"""HTTP/HTTPS services and audit endpoint for the network security lab."""
+
 import base64
 import hashlib
 import hmac
@@ -9,7 +11,6 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from socketserver import BaseRequestHandler, ThreadingTCPServer
 from urllib.parse import urlparse
 
-
 LAB_USER = os.environ.get("LAB_USER", "aluno")
 LAB_PASSWORD = os.environ.get("LAB_PASSWORD", "rede-segura-2026")
 LAB_HMAC_KEY = os.environ.get(
@@ -18,11 +19,14 @@ LAB_HMAC_KEY = os.environ.get(
 
 
 class LabHandler(BaseHTTPRequestHandler):
+    """Handle HTTP requests for the lab's demonstration endpoints."""
+
     server_version = "RedeSeguraLab/1.0"
 
     def send_text(
         self, status, message, content_type="text/plain; charset=utf-8", headers=()
     ):
+        """Send a text response with the requested status, content type, and headers."""
         body = message.encode()
         self.send_response(status)
         for name, value in headers:
@@ -33,6 +37,7 @@ class LabHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def authorized(self):
+        """Check Basic authentication and send a challenge when credentials are invalid."""
         header = self.headers.get("Authorization", "")
         try:
             scheme, token = header.split(" ", 1)
@@ -45,30 +50,32 @@ class LabHandler(BaseHTTPRequestHandler):
             return True
         self.send_text(
             401,
-            "Autenticacao necessaria\n",
-            headers=(("WWW-Authenticate", 'Basic realm="Laboratorio"'),),
+            "Authentication required\n",
+            headers=(("WWW-Authenticate", 'Basic realm="Network security lab"'),),
         )
         return False
 
     def do_GET(self):
+        """Route the lab's health, index, and protected GET requests."""
         path = urlparse(self.path).path
         if path == "/health":
             self.send_text(200, "ok\n")
         elif path == "/":
             self.send_text(
                 200,
-                "Laboratorio de rede segura\n"
-                "HTTP/HTTPS ativo; use /protected para testar autenticacao.\n",
+                "Network security lab\n"
+                "HTTP/HTTPS running; use /protected to test authentication.\n",
             )
         elif path == "/protected":
             if self.authorized():
-                self.send_text(200, "Acesso autorizado\n")
+                self.send_text(200, "Authorized\n")
         else:
-            self.send_text(404, "Nao encontrado\n")
+            self.send_text(404, "Not found\n")
 
     def do_POST(self):
+        """Validate authenticated HMAC requests."""
         if urlparse(self.path).path != "/hmac":
-            self.send_text(404, "Nao encontrado\n")
+            self.send_text(404, "Not found\n")
             return
         if not self.authorized():
             return
@@ -82,24 +89,28 @@ class LabHandler(BaseHTTPRequestHandler):
             if not isinstance(message, str) or not isinstance(signature, str):
                 raise ValueError
         except (ValueError, KeyError, TypeError, json.JSONDecodeError):
-            self.send_text(400, "JSON invalido\n")
+            self.send_text(400, "Invalid JSON\n")
             return
 
-        expected = hmac.new(
-            LAB_HMAC_KEY, message.encode(), hashlib.sha256
-        ).hexdigest()
+        expected = hmac.new(LAB_HMAC_KEY, message.encode(), hashlib.sha256).hexdigest()
         if hmac.compare_digest(signature, expected):
-            self.send_text(200, "HMAC valido: integridade confirmada\n")
+            self.send_text(200, "HMAC valid: integrity confirmed\n")
         else:
-            self.send_text(400, "HMAC invalido: mensagem alterada ou assinatura incorreta\n")
+            self.send_text(
+                400, "HMAC invalid: message altered or signature incorrect\n"
+            )
 
 
 class AuditHandler(BaseRequestHandler):
+    """Respond to connections on the firewall-protected audit port."""
+
     def handle(self):
-        self.request.sendall(b"Servico nao autorizado\n")
+        """Send a message when an unauthorized audit-port connection is accepted."""
+        self.request.sendall(b"Unauthorized service\n")
 
 
 def start_http(port, use_tls=False):
+    """Start an HTTP server, optionally wrapped with the lab's TLS certificate."""
     server = ThreadingHTTPServer(("0.0.0.0", port), LabHandler)
     if use_tls:
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
