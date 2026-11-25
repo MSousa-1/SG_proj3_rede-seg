@@ -1,0 +1,56 @@
+services:
+  gateway:
+    build: .
+    environment:
+      LAB_USER: ${LAB_USER:-aluno}
+      LAB_PASSWORD: ${LAB_PASSWORD:-rede-segura-2026}
+      LAB_HMAC_KEY: ${LAB_HMAC_KEY:-chave-laboratorio-nao-usar-em-producao}
+    ports:
+      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:8443:8443"
+    volumes:
+      - ./certs:/run/certs:ro
+    cap_add:
+      - NET_ADMIN
+    networks:
+      - lab
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health')"]
+      interval: 3s
+      timeout: 2s
+      retries: 10
+
+  test-client:
+    build: .
+    entrypoint: ["python", "tests/integration.py"]
+    profiles: ["test"]
+    environment:
+      LAB_USER: ${LAB_USER:-aluno}
+      LAB_PASSWORD: ${LAB_PASSWORD:-rede-segura-2026}
+      LAB_HMAC_KEY: ${LAB_HMAC_KEY:-chave-laboratorio-nao-usar-em-producao}
+    volumes:
+      - ./certs:/run/certs:ro
+    depends_on:
+      gateway:
+        condition: service_healthy
+    links:
+      - gateway
+    networks:
+      - lab
+
+  capture:
+    build: .
+    entrypoint: ["tcpdump"]
+    command: ["-i", "any", "-U", "-w", "/captures/lab.pcap"]
+    profiles: ["capture"]
+    network_mode: "service:gateway"
+    cap_add:
+      - NET_RAW
+    volumes:
+      - ./captures:/captures
+    depends_on:
+      gateway:
+        condition: service_healthy
+
+networks:
+  lab:
