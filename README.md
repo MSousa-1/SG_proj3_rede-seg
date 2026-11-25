@@ -5,6 +5,9 @@ HTTP e HTTPS, testar autenticação e integridade HMAC, aplicar filtragem de
 tráfego e capturar pacotes. É uma demonstração didática: não use as credenciais,
 chaves ou certificados do laboratório em produção.
 
+Consulte [CONTRIBUTING.md](CONTRIBUTING.md) para conhecer as convenções de
+idioma, código, documentação, testes e estrutura do repositório.
+
 ## Arquitetura
 
 ```text
@@ -14,13 +17,12 @@ Cliente de teste ─────────────────────
 Captura tcpdump (namespace do gateway) ────────────────┘
 ```
 
-O Compose cria uma rede bridge dedicada. O gateway disponibiliza o serviço HTTP em
-`127.0.0.1:8080` e HTTPS em
-`127.0.0.1:8443`. O HTTPS usa certificado de laboratório assinado por uma CA
-local; o cliente de teste confia nessa CA. O serviço de auditoria TCP na porta
-9000 existe para demonstrar que o firewall bloqueia tráfego não autorizado.
-As portas publicadas aceitam conexões do host local; nftables também bloqueia
-conexões iniciadas pelo gateway para redes externas.
+O Compose cria uma rede bridge dedicada. O gateway disponibiliza o serviço HTTP
+em `127.0.0.1:8080` e HTTPS em `127.0.0.1:8443`. O HTTPS usa certificado de
+laboratório assinado por uma CA local; o cliente de teste confia nessa CA. O
+serviço de auditoria TCP na porta 9000 demonstra que o firewall bloqueia tráfego
+não autorizado. As portas publicadas aceitam conexões do host local; o nftables
+também bloqueia conexões iniciadas pelo gateway para redes externas.
 
 ## Requisitos
 
@@ -47,7 +49,8 @@ openssl x509 -in certs/server.crt -noout -subject -issuer -ext subjectAltName
 
 O certificado é confiável somente quando o cliente recebe explicitamente
 `certs/ca.crt`; não desative a validação TLS (`-k`) no experimento de validação.
-Para observar credenciais/dados em claro no HTTP, faça o teste autenticado:
+Para observar credenciais e dados em claro no HTTP, faça uma requisição
+autenticada:
 
 ```sh
 curl -u aluno:rede-segura-2026 http://localhost:8080/protected
@@ -59,14 +62,14 @@ As credenciais e a chave HMAC acima são valores exclusivos do laboratório e
 podem ser sobrescritos pelas variáveis `LAB_USER`, `LAB_PASSWORD` e
 `LAB_HMAC_KEY` antes de iniciar os serviços. O endpoint `/protected` requer
 autenticação HTTP Basic; no HTTP, inclusive o cabeçalho de autenticação fica
-visível na captura. HTTPS protege o conteúdo em trânsito.
+visível na captura. O HTTPS protege o conteúdo em trânsito.
 
 ### Integridade HMAC
 
-O endpoint `POST /hmac` exige autenticação e recebe JSON com `message` e
-`signature`. A assinatura é HMAC-SHA256 hexadecimal da mensagem, calculada com
+O endpoint autenticado `POST /hmac` recebe JSON com `message` e `signature`. A
+assinatura é o HMAC-SHA256 hexadecimal da mensagem, calculado com
 `LAB_HMAC_KEY`. O serviço compara assinaturas em tempo constante e rejeita
-assinaturas inválidas com HTTP 400. A chave compartilhada é apenas para
+assinaturas inválidas com HTTP 400. A chave compartilhada serve apenas para
 demonstração e nunca é enviada na requisição.
 
 ```sh
@@ -80,14 +83,15 @@ curl -u aluno:rede-segura-2026 -H 'Content-Type: application/json' \
 ```
 
 Altere a mensagem sem recalcular a assinatura e repita a requisição para
-demonstrar a detecção de alteração. O teste automatizado faz os casos válido e
-inválido nos dois protocolos.
+demonstrar a detecção de alteração. O teste automatizado verifica assinaturas
+válidas e inválidas nos dois protocolos.
 
 ### Firewall, monitoramento e testes
 
-As regras nftables aceitam loopback, conexões estabelecidas e TCP nas portas
-8080/8443. O restante do tráfego de entrada é registrado no kernel e descartado.
-O teste conecta à porta de auditoria 9000 e confirma que ela não é alcançável.
+As regras nftables aceitam loopback, conexões estabelecidas e tráfego TCP nas
+portas 8080/8443. O restante do tráfego de entrada é registrado no kernel e
+descartado. O teste conecta à porta de auditoria 9000 e confirma que ela não é
+alcançável.
 
 ```sh
 docker compose --profile test run --rm test-client
@@ -106,9 +110,9 @@ Linux, acompanhe `sudo journalctl -k -f | grep LAB_FIREWALL_BLOCK`; consulte
 `sudo nft list ruleset` para a política e os contadores. A captura contém dados
 de teste; remova-a ao terminar.
 
-Resultados automatizados: autorização válida em HTTP e HTTPS, negação sem
-credenciais, HMAC válido e alterado, validação do certificado TLS e bloqueio da
-porta não autorizada.
+Os testes automatizados verificam autorização válida em HTTP e HTTPS, negação
+sem credenciais, assinaturas HMAC válidas e alteradas, validação do certificado
+TLS e bloqueio da porta não autorizada.
 
 ## Plano de trabalho da equipe (4 programadores)
 
