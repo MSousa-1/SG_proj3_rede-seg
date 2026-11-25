@@ -6,9 +6,9 @@ e modificadas.
 
 ## Idioma
 
-Escreva código-fonte, identificadores, comentários, docstrings, testes,
-mensagens de commit e documentação do projeto em inglês por padrão. Mantenha
-`README.md` e `CONTRIBUTING.md` em português. Use outro idioma para os demais
+Escreva código-fonte, identificadores, comentários, docstrings, testes e 
+mensagens de commit em inglês por padrão. Mantenha
+`README.md` em português. Use outro idioma para os demais
 conteúdos somente quando houver uma necessidade específica de público ou de uma
 interface voltada ao usuário.
 
