@@ -103,6 +103,7 @@ def start_http(port, use_tls=False):
     server = ThreadingHTTPServer(("0.0.0.0", port), LabHandler)
     if use_tls:
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
         context.load_cert_chain("/run/certs/server.crt", "/run/certs/server.key")
         server.socket = context.wrap_socket(server.socket, server_side=True)
     threading.Thread(target=server.serve_forever, daemon=True).start()
